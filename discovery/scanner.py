@@ -1,13 +1,20 @@
+from discovery.solana_rpc import get_recent_signatures
+
+
+SEED_WALLETS = [
+    "So11111111111111111111111111111111111111112",  # SOL mint (exemple réseau actif)
+]
+
+
 def discover_wallet_candidates():
-    """
-    Fonction temporaire.
-    Retournera plus tard des adresses Solana.
-    """
+    candidates = set()
 
-    candidates = [
-        "wallet_1",
-        "wallet_2",
-        "wallet_3"
-    ]
+    for wallet in SEED_WALLETS:
+        txs = get_recent_signatures(wallet, limit=5)
 
-    return candidates
+        for tx in txs:
+            sig = tx.get("signature")
+            if sig:
+                candidates.add(sig)
+
+    return list(candidates)

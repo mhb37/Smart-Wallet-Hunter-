@@ -1,36 +1,29 @@
-from collections import defaultdict
+from collections import Counter
 
 from discovery.solana_rpc import get_recent_signatures, get_transaction
 from discovery.wallet_extractor import extract_wallets_from_transaction, filter_wallets
 
 
 # =========================
-# MEMORY (IMPORTANT V6)
+# MEMORY GLOBAL (PERSISTANT RUNTIME)
 # =========================
+SEEN = Counter()
 
-WALLET_STATS = defaultdict(int)
+
 SEED_WALLETS = [
     "So11111111111111111111111111111111111111112"
 ]
 
 
-def _update_memory(wallets):
-
-    for w in wallets:
-        WALLET_STATS[w] += 1
-
-
-def _filter_recurrent(wallets):
-
-    """
-    Garde uniquement les wallets déjà vus au moins 2 fois
-    => réduit MASSIVEMENT le bruit
-    """
+def strong_filter(wallets):
 
     filtered = []
 
     for w in wallets:
-        if WALLET_STATS[w] >= 2:
+        SEEN[w] += 1
+
+        # 🔥 on force récurrence forte
+        if SEEN[w] >= 3:
             filtered.append(w)
 
     return filtered
@@ -40,18 +33,13 @@ def discover_wallet_candidates():
 
     all_wallets = set()
 
-    # =========================
-    # DYNAMIC SEEDS (IMPORTANT)
-    # =========================
-    dynamic_seeds = list(set(SEED_WALLETS) | set(list(WALLET_STATS.keys())))
+    seeds = list(set(SEED_WALLETS) | set(SEEN.keys()))
+    seeds = seeds[:15]  # anti explosion
 
-    # limite anti explosion
-    dynamic_seeds = dynamic_seeds[:20]
-
-    for seed in dynamic_seeds:
+    for seed in seeds:
 
         try:
-            signatures = get_recent_signatures(seed, limit=8)
+            signatures = get_recent_signatures(seed, limit=5)
         except Exception:
             continue
 
@@ -73,17 +61,11 @@ def discover_wallet_candidates():
                 all_wallets.add(w)
 
     # =========================
-    # UPDATE MEMORY
+    # FILTER FINAL (IMPORTANT)
     # =========================
-    _update_memory(all_wallets)
+    wallets = strong_filter(list(all_wallets))
 
-    # =========================
-    # FILTER RECURRING SIGNAL
-    # =========================
-    final_wallets = _filter_recurrent(all_wallets)
+    if len(wallets) < 2:
+        return []
 
-    # fallback sécurité : si trop strict, on renvoie brut
-    if len(final_wallets) < 3:
-        return list(all_wallets)
-
-    return list(final_wallets)
+    return wallets

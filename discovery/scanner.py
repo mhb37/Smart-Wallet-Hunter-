@@ -1,90 +1,87 @@
-from collections import Counter
+from collections import defaultdict
 
 from discovery.solana_rpc import get_recent_signatures, get_transaction
-from discovery.wallet_extractor import extract_wallets_from_transaction, filter_wallets
+from discovery.wallet_extractor import extract_wallets_from_transaction
 
 
 # =========================
-# MEMORY
+# CONFIG
 # =========================
-SEEN = Counter()
-
 SEED_WALLETS = [
     "So11111111111111111111111111111111111111112"
 ]
 
 
 # =========================
-# FILTER (léger)
+# STATS MEMORY (runtime only)
+# =========================
+WALLET_STATS = defaultdict(lambda: {
+    "appear": 0
+})
+
+
+# =========================
+# NO FILTER (SAFE MODE)
 # =========================
 def recurrence_filter(wallets):
-
-    result = []
-
-    for w in wallets:
-        SEEN[w] += 1
-
-        if SEEN[w] >= 2:
-            result.append(w)
-
-    return result
+    """
+    ⚠️ SAFE MODE:
+    Aucun filtrage destructeur ici.
+    """
+    return list(wallets)
 
 
 # =========================
-# DEBUG SCANNER
+# MAIN SCANNER
 # =========================
 def discover_wallet_candidates():
 
-    print("\n===== SCANNER DEBUG START =====")
+    print("\n===== SCANNER START =====")
 
-    current_seeds = set(SEED_WALLETS)
-    all_discovered = set()
+    all_wallets = set()
 
-    for seed in list(current_seeds):
+    for seed in SEED_WALLETS:
 
-        print(f"\n[DEBUG] SEED: {seed}")
+        print(f"\n[DEBUG] SEED = {seed}")
 
         # =========================
         # 1. GET SIGNATURES
         # =========================
         try:
             signatures = get_recent_signatures(seed, limit=10)
-            print(f"[DEBUG] signatures raw type={type(signatures)}")
-
         except Exception as e:
-            print(f"[ERROR] get_recent_signatures failed: {e}")
+            print(f"[ERROR] get_recent_signatures: {e}")
             continue
 
         if not signatures:
             print("[DEBUG] NO signatures returned")
             continue
 
-        print(f"[DEBUG] signatures count={len(signatures)}")
+        print(f"[DEBUG] signatures count = {len(signatures)}")
 
         # =========================
-        # 2. LOOP TX
+        # 2. PROCESS TX
         # =========================
-        for i, tx in enumerate(signatures[:10]):
+        for i, tx in enumerate(signatures):
 
             sig = tx.get("signature") if isinstance(tx, dict) else None
 
-            print(f"\n[DEBUG] TX #{i} sig={sig}")
+            print(f"\n[DEBUG] TX #{i} sig = {sig}")
 
             if not sig:
-                print("[DEBUG] missing signature")
                 continue
 
             # =========================
-            # 3. GET FULL TX
+            # 3. GET TX
             # =========================
             try:
                 full_tx = get_transaction(sig)
             except Exception as e:
-                print(f"[ERROR] get_transaction failed: {e}")
+                print(f"[ERROR] get_transaction: {e}")
                 continue
 
             if not full_tx:
-                print("[DEBUG] empty transaction")
+                print("[DEBUG] empty tx")
                 continue
 
             print("[DEBUG] tx loaded OK")
@@ -94,41 +91,46 @@ def discover_wallet_candidates():
             # =========================
             try:
                 wallets = extract_wallets_from_transaction(full_tx)
-                print(f"[DEBUG] wallets raw: {wallets}")
-
             except Exception as e:
-                print(f"[ERROR] extract_wallets failed: {e}")
+                print(f"[ERROR] extract_wallets: {e}")
                 continue
 
             if not wallets:
                 print("[DEBUG] no wallets extracted")
                 continue
 
-            # =========================
-            # 5. FILTER
-            # =========================
-            try:
-                wallets = filter_wallets(wallets)
-                print(f"[DEBUG] wallets after filter: {wallets}")
+            print(f"[DEBUG] wallets raw = {wallets}")
 
-            except Exception as e:
-                print(f"[ERROR] filter_wallets failed: {e}")
-                continue
+            # =========================
+            # 5. FILTER (DISABLED SAFE)
+            # =========================
+            wallets = recurrence_filter(wallets)
 
+            print(f"[DEBUG] wallets after filter = {wallets}")
+
+            # =========================
+            # 6. STORE GLOBAL SET (IMPORTANT FIX)
+            # =========================
             for w in wallets:
-                all_discovered.add(w)
+                all_wallets.add(w)
+                WALLET_STATS[w]["appear"] += 1
 
     # =========================
-    # FINAL FILTER
+    # FINAL DEBUG (CRITICAL FIX AREA)
     # =========================
-    wallets = recurrence_filter(list(all_discovered))
+    print("\n===== FINAL DEBUG =====")
+    print(f"[DEBUG] discovered wallets = {len(all_wallets)}")
+    print(f"[DEBUG] sample = {list(all_wallets)[:5]}")
 
-    print("\n===== SCANNER DEBUG END =====")
-    print(f"[DEBUG] total discovered wallets={len(all_discovered)}")
-    print(f"[DEBUG] final wallets={len(wallets)}")
+    final_wallets = list(all_wallets)
 
-    if len(wallets) < 2:
-        print("[DEBUG] NOT ENOUGH DATA → returning empty")
+    # =========================
+    # SAFETY RETURN (NO EMPTY RESET BUG)
+    # =========================
+    if len(final_wallets) == 0:
+        print("[DEBUG] EMPTY RESULT - CHECK RPC OR EXTRACTION")
         return []
 
-    return wallets
+    print(f"[DEBUG] FINAL OUTPUT = {len(final_wallets)} wallets")
+
+    return final_wallets

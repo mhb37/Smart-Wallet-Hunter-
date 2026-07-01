@@ -11,7 +11,7 @@ def main():
     scheduler.add_job(
         discover_wallets_job,
         "interval",
-        hours=1
+        minutes=1
     )
 
     scheduler.start()

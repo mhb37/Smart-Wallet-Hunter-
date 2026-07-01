@@ -1,4 +1,16 @@
-from telegram_bot.bot import build_bot
+from telegram.ext import ApplicationBuilder
 
-app = build_bot(token)
-app.run_polling(drop_pending_updates=True)
+from telegram_bot.handlers import register_handlers
+
+
+def build_bot(token):
+
+    app = (
+        ApplicationBuilder()
+        .token(token)
+        .build()
+    )
+
+    register_handlers(app)
+
+    return app

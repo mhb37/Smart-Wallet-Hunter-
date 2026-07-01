@@ -1,77 +1,83 @@
-from discovery.solana_rpc import get_transaction
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-BLACKLIST = {
-    "11111111111111111111111111111111",
-    "So11111111111111111111111111111111111111112",
+# programmes Solana à exclure
+EXCLUDED_WALLETS = {
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
     "ComputeBudget111111111111111111111111111111",
-    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "11111111111111111111111111111111",
+    "SysvarRent111111111111111111111111111111111",
 }
 
 
-def load_tx(signature):
-
-    tx = get_transaction(signature)
-
-    if not tx:
-        return None
-
-    wallets = extract_wallets_from_transaction(tx)
-
-    wallets = filter_wallets(wallets)
-
-    return {
-        "wallets": wallets
-    }
-
-
-def extract_wallets_from_transaction(tx):
-
+def extract_wallets_from_transaction(tx: dict) -> set[str]:
+    """
+    Extrait uniquement les wallets utiles (signers + accounts)
+    """
     wallets = set()
 
-    try:
+    if not tx:
+        return wallets
 
-        accounts = tx["transaction"]["message"]["accountKeys"]
+    try:
+        message = tx.get("transaction", {}).get("message", {})
+        accounts = message.get("accountKeys", [])
 
         for acc in accounts:
 
+            # format jsonParsed
             if isinstance(acc, dict):
-
                 pubkey = acc.get("pubkey")
+                signer = acc.get("signer", False)
 
-                if pubkey:
+                if pubkey and signer and pubkey not in EXCLUDED_WALLETS:
                     wallets.add(pubkey)
 
+            # format string
             elif isinstance(acc, str):
+                if acc not in EXCLUDED_WALLETS:
+                    wallets.add(acc)
 
-                wallets.add(acc)
-
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("wallet extractor error: %s", e)
 
     return wallets
 
 
-def filter_wallets(wallets):
-
-    result = []
+def filter_wallets(wallets: set[str]) -> list[str]:
+    """
+    Nettoyage final
+    """
+    cleaned = set()
 
     for w in wallets:
-
         if not w:
+            continue
+
+        if not isinstance(w, str):
             continue
 
         if len(w) < 32:
             continue
 
-        if w in BLACKLIST:
+        if "111111" in w:
             continue
 
-        if "111111111111" in w:
+        if w in EXCLUDED_WALLETS:
             continue
 
-        result.append(w)
+        cleaned.add(w)
 
-    return result
+    return list(cleaned)
+
+
+def load_tx(tx):
+    """
+    Wrapper simple utilisé par scanner.py
+    """
+    return {
+        "wallets": list(extract_wallets_from_transaction(tx))
+    }

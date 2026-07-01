@@ -1,41 +1,27 @@
-from collections import defaultdict
+from storage.db import upsert_wallet, get_all_wallets
 
 
 def score_wallets(wallets):
-    """
-    V3 scoring engine.
-    Les wallets récurrents montent progressivement.
-    """
-
-    stats = defaultdict(
-        lambda: {
-            "score": 50.0,
-            "appear": 0
-        }
-    )
 
     for wallet in wallets:
+        upsert_wallet(wallet)
 
-        stats[wallet]["appear"] += 1
+    rows = get_all_wallets()
 
-        appear = stats[wallet]["appear"]
+    results = []
 
-        # bonus de récurrence
-        stats[wallet]["score"] = 50.0 + (appear * 10)
+    for wallet, first_seen, last_seen, appearances in rows:
 
-    result = []
+        score = 50 + appearances * 10
 
-    for wallet, data in stats.items():
-
-        result.append({
-            "wallet": wallet[:6],   # affichage court dans les logs
-            "full_wallet": wallet,
-            "score": data["score"],
-            "appear": data["appear"]
+        results.append({
+            "wallet": wallet,
+            "score": score,
+            "appear": appearances
         })
 
     return sorted(
-        result,
+        results,
         key=lambda x: x["score"],
         reverse=True
     )

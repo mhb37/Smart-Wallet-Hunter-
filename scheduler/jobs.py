@@ -2,10 +2,11 @@ from datetime import datetime
 
 from discovery.scanner import discover_wallet_candidates
 from storage.db import upsert_wallet
-from analysis.smart_money import compute_smart_wallets
+
 from analysis.graph import add_connections
 from analysis.centrality import compute_weighted_centrality
-from analysis.behavior import classify_wallets
+
+from analysis.clusters import update_clusters, compute_clusters, get_cluster_score
 
 
 def discover_wallets_job():
@@ -28,33 +29,34 @@ def discover_wallets_job():
         upsert_wallet(w)
 
     # =========================
-    # GRAPH BUILD
+    # GRAPH (V4 toujours actif)
     # =========================
     add_connections(wallets)
 
-    # =========================
-    # V3 SCORE
-    # =========================
-    top = compute_smart_wallets()
-
-    print("\n🔥 SMART MONEY (V3)")
-    for w in top:
-        print(f"- {w['wallet'][:6]} score={w['score']} appear={w['appearances']}")
-
-    # =========================
-    # V4 CENTRALITY
-    # =========================
     central = compute_weighted_centrality()
 
     print("\n🧠 GRAPH LEADERS (V4)")
-    for w in central:
+    for w in central[:5]:
         print(f"- {w['wallet'][:6]} centrality={w['score']}")
 
     # =========================
-    # V5 BEHAVIOR
+    # V9 CLUSTERS ENGINE (NOUVEAU)
     # =========================
-    behavior = classify_wallets()
+    update_clusters(wallets)
 
-    print("\n🧬 WALLET BEHAVIOR (V5)")
-    for w in behavior[:10]:
-        print(f"- {w['wallet'][:6]} {w['behavior']} intensity={w['intensity']}")
+    clusters = compute_clusters()
+
+    print("\n🧬 SMART MONEY CLUSTERS (V9)")
+
+    if not clusters:
+        print("- aucun cluster stable")
+        return
+
+    for c in clusters[:5]:
+
+        score = get_cluster_score(c)
+
+        print(f"\n🔥 CLUSTER (score={score})")
+
+        for w in c[:5]:
+            print(f"- {w[:6]}")

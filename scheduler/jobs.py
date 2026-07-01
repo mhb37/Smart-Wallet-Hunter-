@@ -8,6 +8,11 @@ from discovery.scanner import scan_wallets
 from analysis.wallet_score import score_wallets
 from analysis.centrality import compute_weighted_centrality
 from analysis.behavior import classify_wallets
+from analysis.clusters import (
+    update_clusters,
+    compute_clusters,
+    get_cluster_score,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -15,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 def start_scheduler():
     """
-    Railway friendly scheduler
+    Railway-friendly scheduler.
+    Une seule boucle daemon.
     """
 
     def loop():
@@ -53,26 +59,26 @@ def run_scan():
     if not wallets:
         return
 
-    # =====================
+    # ==========================
     # V3 SMART MONEY
-    # =====================
+    # ==========================
 
     scored = score_wallets(wallets)
 
     logger.info("🔥 SMART MONEY TOP 10")
 
-    for w in scored[:10]:
+    for item in scored[:10]:
 
         logger.info(
             "- %s score=%.1f appear=%s",
-            w["wallet"],
-            w["score"],
-            w.get("appear", 1)
+            item["wallet"],
+            item["score"],
+            item.get("appear", 1)
         )
 
-    # =====================
+    # ==========================
     # V4 GRAPH
-    # =====================
+    # ==========================
 
     try:
 
@@ -80,7 +86,7 @@ def run_scan():
 
         logger.info("🧠 GRAPH LEADERS (V4)")
 
-        for item in leaders:
+        for item in leaders[:10]:
 
             logger.info(
                 "- %s centrality=%.3f",
@@ -91,9 +97,9 @@ def run_scan():
     except Exception:
         logger.exception("Centrality failed")
 
-    # =====================
+    # ==========================
     # V5 BEHAVIOR
-    # =====================
+    # ==========================
 
     try:
 
@@ -104,7 +110,7 @@ def run_scan():
         for item in behaviors[:10]:
 
             logger.info(
-                "- %s %s intensity=%.1f",
+                "- %s %s intensity=%.2f",
                 item["wallet"][:6],
                 item["behavior"],
                 item["intensity"]
@@ -112,3 +118,34 @@ def run_scan():
 
     except Exception:
         logger.exception("Behavior failed")
+
+    # ==========================
+    # V9 CLUSTERS
+    # ==========================
+
+    try:
+
+        update_clusters(wallets)
+
+        clusters = compute_clusters()
+
+        logger.info("🧬 SMART MONEY CLUSTERS (V9)")
+
+        for i, cluster in enumerate(clusters[:10], 1):
+
+            score = get_cluster_score(cluster)
+
+            preview = ", ".join(
+                w[:6] for w in cluster[:5]
+            )
+
+            logger.info(
+                "- Cluster #%s | size=%s | score=%s | %s",
+                i,
+                len(cluster),
+                score,
+                preview
+            )
+
+    except Exception:
+        logger.exception("Clusters failed")

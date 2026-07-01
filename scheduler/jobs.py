@@ -4,7 +4,8 @@ from discovery.scanner import discover_wallet_candidates
 from storage.db import upsert_wallet
 from analysis.smart_money import compute_smart_wallets
 from analysis.graph import add_connections
-from analysis.centrality import compute_centrality
+from analysis.centrality import compute_weighted_centrality
+from analysis.behavior import classify_wallets
 
 
 def discover_wallets_job():
@@ -21,30 +22,44 @@ def discover_wallets_job():
         return
 
     # =========================
-    # STORAGE SQLITE
+    # STORE
     # =========================
     for w in wallets:
         upsert_wallet(w)
 
     # =========================
-    # GRAPH BUILDING (V4 CORE)
+    # GRAPH
     # =========================
     add_connections(wallets)
 
     # =========================
-    # OLD SMART SCORE (V3)
+    # V3 SMART SCORE
     # =========================
     top = compute_smart_wallets()
 
-    print("\n🔥 SMART MONEY TOP (V3)")
+    print("\n🔥 SMART MONEY (V3)")
     for w in top:
-        print(f"- {w['wallet'][:6]}... score={w['score']} appear={w['appearances']}")
+        print(f"- {w['wallet'][:6]} score={w['score']} appear={w['appearances']}")
 
     # =========================
-    # NEW GRAPH CENTRALITY (V4)
+    # V4 CENTRALITY
     # =========================
-    central = compute_centrality()
+    central = compute_weighted_centrality()
 
     print("\n🧠 GRAPH LEADERS (V4)")
     for w in central:
-        print(f"- {w['wallet'][:6]}... centrality={w['score']}")
+        print(f"- {w['wallet'][:6]} centrality={w['score']}")
+
+    # =========================
+    # V5 BEHAVIOR CLASSIFICATION
+    # =========================
+    behavior = classify_wallets()
+
+    print("\n🧬 WALLET BEHAVIOR (V5)")
+
+    for w in behavior[:10]:
+        print(
+            f"- {w['wallet'][:6]} "
+            f"{w['behavior']} "
+            f"intensity={w['intensity']}"
+        )

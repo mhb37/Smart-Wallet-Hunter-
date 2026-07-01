@@ -23,7 +23,7 @@ def strong_filter(wallets):
         SEEN[w] += 1
 
         # 🔥 on force récurrence forte
-        if SEEN[w] >= 3:
+        if SEEN[w] >= 2:
             filtered.append(w)
 
     return filtered

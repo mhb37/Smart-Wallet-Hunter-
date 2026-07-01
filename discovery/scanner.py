@@ -6,46 +6,36 @@ SEED_WALLETS = [
     "So11111111111111111111111111111111111111112"
 ]
 
+EXPLORED = set()
+
 
 def discover_wallet_candidates():
 
     all_wallets = set()
 
-    for seed in SEED_WALLETS:
+    # 🔥 dynamic seeds = seeds + anciens wallets
+    dynamic_seeds = list(set(SEED_WALLETS) | EXPLORED)
 
-        signatures = get_recent_signatures(seed, limit=10)
+    for seed in dynamic_seeds[:20]:  # limite pour éviter explosion
+
+        try:
+            signatures = get_recent_signatures(seed, limit=5)
+        except:
+            continue
 
         for tx in signatures:
 
-            signature = tx.get("signature")
-            if not signature:
+            sig = tx.get("signature")
+            if not sig:
                 continue
 
-            full_tx = get_transaction(signature)
+            full_tx = get_transaction(sig)
 
             wallets = extract_wallets_from_transaction(full_tx)
             wallets = filter_wallets(wallets)
 
             for w in wallets:
                 all_wallets.add(w)
-
-                # 🔥 IMPORTANT : re-exploration légère (1 hop)
-                try:
-                    sub_signatures = get_recent_signatures(w, limit=3)
-
-                    for stx in sub_signatures:
-                        sig = stx.get("signature")
-                        if not sig:
-                            continue
-
-                        sub_tx = get_transaction(sig)
-
-                        sub_wallets = extract_wallets_from_transaction(sub_tx)
-                        sub_wallets = filter_wallets(sub_wallets)
-
-                        all_wallets.update(sub_wallets)
-
-                except:
-                    pass
+                EXPLORED.add(w)  # 🔥 clé du système
 
     return list(all_wallets)

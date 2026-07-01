@@ -1,92 +1,81 @@
 import os
 import sys
-import time
-from apscheduler.schedulers.background import BackgroundScheduler
+import asyncio
+import logging
 
-from telegram_bot.bot import create_bot
-from scheduler.jobs import discover_wallets_job
-from storage.db import init_db
+from telegram.ext import ApplicationBuilder
 
-from analysis.graph import load_graph, save_graph
-
-
-# =========================
-# DEBUG
-# =========================
-def debug():
-    print("\n===== DEBUG =====")
-    print("WORKDIR:", os.getcwd())
-    print("FILES:", os.listdir("."))
-    print("PYTHON PATH:", sys.path)
-    print("================\n")
+from scheduler.jobs import start_scheduler
+from telegram_bot.handlers import register_handlers
 
 
-# =========================
-# SCHEDULER
-# =========================
-def start_scheduler():
-
-    scheduler = BackgroundScheduler()
-
-    scheduler.add_job(
-        discover_wallets_job,
-        trigger="interval",
-        seconds=60,  # stable sur Railway
-        id="wallet_scan",
-        max_instances=1,
-        replace_existing=True
-    )
-
-    scheduler.start()
-
-    print("🟢 Scheduler STARTED")
-
-    return scheduler
+# ========================
+# LOGGING GLOBAL
+# ========================
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 
-# =========================
+# ========================
+# ANTI DOUBLE INSTANCE
+# ========================
+def kill_if_duplicate():
+    """
+    Empêche 2 bots Telegram (getUpdates conflict)
+    """
+    global_lock_file = "/tmp/smart_wallet_bot.lock"
+
+    if os.path.exists(global_lock_file):
+        logger.error("❌ Bot déjà en cours (lock file existant)")
+        sys.exit(1)
+
+    with open(global_lock_file, "w") as f:
+        f.write(str(os.getpid()))
+
+    logger.info("🔒 Lock acquis, instance unique OK")
+
+
+def release_lock():
+    try:
+        os.remove("/tmp/smart_wallet_bot.lock")
+    except:
+        pass
+
+
+# ========================
 # MAIN
-# =========================
-def main():
+# ========================
+async def main():
+    kill_if_duplicate()
 
-    debug()
+    logger.info("🚀 Smart Wallet Hunter lancé")
 
-    # DB init
-    init_db()
+    TOKEN = os.getenv("BOT_TOKEN")
+    if not TOKEN:
+        raise ValueError("BOT_TOKEN manquant")
 
-    # GRAPH LOAD (V6.1 FIX)
-    load_graph()
+    app = ApplicationBuilder().token(TOKEN).build()
 
-    # BOT
-    bot = create_bot()
+    # handlers
+    register_handlers(app)
 
-    # SCHEDULER
-    scheduler = start_scheduler()
+    # scheduler
+    start_scheduler()
 
-    print("🚀 Smart Wallet Hunter lancé")
+    logger.info("🟢 Bot prêt")
 
     try:
-        # Telegram bot loop
-        bot.run_polling(drop_pending_updates=True)
-
-    except Exception as e:
-        print("❌ BOT ERROR:", e)
-
+        await app.run_polling(close_loop=False)
     finally:
-        # sauvegarde graph à l’arrêt
-        print("💾 Saving graph...")
-        save_graph()
-
-        print("🛑 Shutdown complete")
+        release_lock()
 
 
-# =========================
-# KEEP ALIVE (RAILWAY SAFE)
-# =========================
 if __name__ == "__main__":
-
-    main()
-
-    # sécurité anti stop process Railway
-    while True:
-        time.sleep(60)
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        logger.exception(e)
+        release_lock()

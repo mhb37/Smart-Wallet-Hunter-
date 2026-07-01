@@ -1,24 +1,10 @@
-async def start(update, context):
-    await update.message.reply_text(
-        "🚀 Smart Wallet Hunter est en ligne !"
-    )
+from telegram import Update
+from telegram.ext import ContextTypes
 
 
-async def status(update, context):
-    await update.message.reply_text(
-        "✅ Statut : opérationnel"
-    )
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🚀 Smart Wallet Bot actif")
 
 
-async def help_command(update, context):
-    await update.message.reply_text(
-        """
-Commandes disponibles :
-
-/start
-/status
-/help
-/top
-/stats
-"""
-    )
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🟢 OK - system running")

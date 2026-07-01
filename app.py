@@ -7,7 +7,12 @@ from telegram_bot.bot import create_bot
 from scheduler.jobs import discover_wallets_job
 from storage.db import init_db
 
+from analysis.graph import load_graph, save_graph
 
+
+# =========================
+# DEBUG
+# =========================
 def debug():
     print("\n===== DEBUG =====")
     print("WORKDIR:", os.getcwd())
@@ -16,17 +21,20 @@ def debug():
     print("================\n")
 
 
+# =========================
+# SCHEDULER
+# =========================
 def start_scheduler():
 
     scheduler = BackgroundScheduler()
 
     scheduler.add_job(
         discover_wallets_job,
-        "interval",
-        seconds=60,   # IMPORTANT: plus stable que minutes=1
-        id="scan_job",
-        replace_existing=True,
-        max_instances=1
+        trigger="interval",
+        seconds=60,  # stable sur Railway
+        id="wallet_scan",
+        max_instances=1,
+        replace_existing=True
     )
 
     scheduler.start()
@@ -36,33 +44,49 @@ def start_scheduler():
     return scheduler
 
 
+# =========================
+# MAIN
+# =========================
 def main():
 
     debug()
 
+    # DB init
     init_db()
 
-    # =========================
-    # START SCHEDULER
-    # =========================
-    scheduler = start_scheduler()
+    # GRAPH LOAD (V6.1 FIX)
+    load_graph()
 
-    # =========================
     # BOT
-    # =========================
     bot = create_bot()
+
+    # SCHEDULER
+    scheduler = start_scheduler()
 
     print("🚀 Smart Wallet Hunter lancé")
 
-    # KEEP ALIVE LOOP (IMPORTANT RAILWAY)
-    bot.run_polling(
-        drop_pending_updates=True
-    )
+    try:
+        # Telegram bot loop
+        bot.run_polling(drop_pending_updates=True)
 
-    # sécurité anti stop process
+    except Exception as e:
+        print("❌ BOT ERROR:", e)
+
+    finally:
+        # sauvegarde graph à l’arrêt
+        print("💾 Saving graph...")
+        save_graph()
+
+        print("🛑 Shutdown complete")
+
+
+# =========================
+# KEEP ALIVE (RAILWAY SAFE)
+# =========================
+if __name__ == "__main__":
+
+    main()
+
+    # sécurité anti stop process Railway
     while True:
         time.sleep(60)
-
-
-if __name__ == "__main__":
-    main()

@@ -3,76 +3,48 @@ from datetime import datetime
 
 from discovery.scanner import scan_wallets
 from analysis.wallet_score import score_wallets
-from telegram_bot.notifier import send_alert
+
 
 logger = logging.getLogger(__name__)
 
 
-# =========================
-# STATE GLOBAL (important)
-# =========================
-_seen_wallets = set()
-_last_scan_hash = None
-
-
-def discover_wallets_job():
+def start_scheduler():
     """
-    JOB principal exécuté par scheduler
+    Simple loop scheduler (Railway friendly)
     """
 
-    global _seen_wallets, _last_scan_hash
+    import threading
+    import time
 
-    logger.info("🔁 [SCHEDULER] Scan exécuté à %s", datetime.utcnow())
+    def loop():
+        while True:
+            try:
+                run_scan()
+            except Exception as e:
+                logger.exception(e)
 
-    # 1. SCAN RAW TX
+            time.sleep(60)  # 1 min scan
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+
+def run_scan():
+    logger.info("🔁 [SCAN] %s", datetime.utcnow())
+
     wallets = scan_wallets()
 
-    logger.debug("[DEBUG] raw wallets = %s", wallets)
+    logger.info("📊 %s wallets détectés", len(wallets))
 
-    # ⚠️ FIX CRITIQUE : normalisation (cause 0 wallets bug)
     if not wallets:
-        logger.debug("[DEBUG] empty scan → skip")
         return
 
-    wallets = set(wallets)
+    scored = score_wallets(wallets)
 
-    logger.debug("[DEBUG] unique wallets = %s", wallets)
-
-    # 2. ANTI DUPLICATES ACROSS SCANS
-    new_wallets = wallets - _seen_wallets
-
-    logger.debug("[DEBUG] new wallets = %s", new_wallets)
-
-    if not new_wallets:
-        logger.debug("[DEBUG] no new wallets → skip scoring")
-        return
-
-    _seen_wallets |= new_wallets
-
-    # 3. SCORE
-    scored = score_wallets(list(new_wallets))
-
-    logger.debug("[DEBUG] scored wallets = %s", scored)
-
-    if not scored:
-        logger.debug("[DEBUG] no scored wallets")
-        return
-
-    # 4. TOP 10 SAFE
     top = sorted(scored, key=lambda x: x["score"], reverse=True)[:10]
 
-    logger.info("🔥 SMART MONEY TOP %s", len(top))
+    logger.info("🔥 SMART MONEY TOP 10")
 
     for w in top:
-        logger.info(
-            "- %s score=%.1f appear=%s",
-            w["wallet"],
-            w["score"],
-            w.get("appear", 1)
-        )
-
-    # 5. NOTIFY (optionnel)
-    try:
-        send_alert(top)
-    except Exception as e:
-        logger.exception("Telegram send error: %s", e)
+        logger.info("- %s score=%.1f appear=%s",
+                    w["wallet"], w["score"], w.get("appear", 1))

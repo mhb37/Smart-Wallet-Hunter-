@@ -7,26 +7,24 @@ def compute_weighted_centrality():
 
     scores = {}
 
-    # init
     for node in graph:
         scores[node] = 1.0
 
-    # propagation pondérée
-    for _ in range(4):
+    for _ in range(3):
 
         new_scores = {}
 
         for node, neighbors in graph.items():
 
-            total_weight = sum(neighbors.values())
+            total = sum(neighbors.values())
 
-            if total_weight == 0:
+            if total == 0:
                 continue
 
-            for n, weight in neighbors.items():
+            for n, w in neighbors.items():
 
                 new_scores[n] = new_scores.get(n, 0) + (
-                    scores[node] * (weight / total_weight)
+                    scores[node] * (w / total)
                 )
 
         scores = new_scores

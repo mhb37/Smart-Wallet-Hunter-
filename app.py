@@ -1,5 +1,4 @@
 import os
-import asyncio
 import logging
 
 from telegram.ext import ApplicationBuilder
@@ -12,22 +11,29 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s"
 )
+
 logger = logging.getLogger(__name__)
 
 
 def main():
+
     logger.info("🚀 Smart Wallet Hunter starting...")
 
     token = os.getenv("BOT_TOKEN")
+
     if not token:
-        raise ValueError("BOT_TOKEN missing")
+        raise ValueError(
+            "BOT_TOKEN missing. Configure Railway Variables."
+        )
 
-    app = ApplicationBuilder().token(token).build()
+    app = ApplicationBuilder() \
+        .token(token) \
+        .build()
 
-    # Telegram handlers
+    # Telegram commands
     register_handlers(app)
 
-    # Scheduler (scan loop)
+    # Background scanner
     start_scheduler()
 
     logger.info("🟢 Bot running")

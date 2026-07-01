@@ -1,10 +1,7 @@
 from analysis.graph import get_graph
 
 
-def compute_centrality():
-    """
-    Score simple type PageRank léger (approximation)
-    """
+def compute_weighted_centrality():
 
     graph = get_graph()
 
@@ -14,27 +11,28 @@ def compute_centrality():
     for node in graph:
         scores[node] = 1.0
 
-    # itérations (diffusion influence)
-    for _ in range(3):
+    # propagation pondérée
+    for _ in range(4):
+
         new_scores = {}
 
-        for node in graph:
-            neighbors = graph[node]
+        for node, neighbors in graph.items():
 
-            if not neighbors:
-                new_scores[node] = scores[node]
+            total_weight = sum(neighbors.values())
+
+            if total_weight == 0:
                 continue
 
-            share = scores[node] / len(neighbors)
+            for n, weight in neighbors.items():
 
-            for n in neighbors:
-                new_scores[n] = new_scores.get(n, 0) + share
+                new_scores[n] = new_scores.get(n, 0) + (
+                    scores[node] * (weight / total_weight)
+                )
 
         scores = new_scores
 
-    # format final
     return sorted(
-        [{"wallet": k, "score": round(v, 2)} for k, v in scores.items()],
+        [{"wallet": k, "score": round(v, 3)} for k, v in scores.items()],
         key=lambda x: x["score"],
         reverse=True
     )[:10]

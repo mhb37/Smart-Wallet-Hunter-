@@ -1,12 +1,6 @@
 from telegram.ext import CommandHandler
 
-
-async def start(update, context):
-    await update.message.reply_text("🚀 Bot actif")
-
-
-async def status(update, context):
-    await update.message.reply_text("🟢 OK")
+from telegram_bot.commands import start, status
 
 
 def register_handlers(app):

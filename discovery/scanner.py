@@ -5,66 +5,84 @@ from discovery.wallet_extractor import extract_wallets_from_transaction, filter_
 
 
 # =========================
-# MEMORY GLOBAL (PERSISTANT RUNTIME)
+# MEMORY (runtime only)
 # =========================
 SEEN = Counter()
 
-
+# seeds init (point de départ réseau)
 SEED_WALLETS = [
     "So11111111111111111111111111111111111111112"
 ]
 
 
-def strong_filter(wallets):
+# =========================
+# FILTER RÉCURRENCE (léger, pas destructif)
+# =========================
+def recurrence_filter(wallets):
 
-    filtered = []
+    result = []
 
     for w in wallets:
         SEEN[w] += 1
 
-        # 🔥 on force récurrence forte
+        # seuil équilibré (IMPORTANT)
         if SEEN[w] >= 2:
-            filtered.append(w)
+            result.append(w)
 
-    return filtered
+    return result
 
 
+# =========================
+# MULTI-HOP DISCOVERY ENGINE (FIX IMPORTANT)
+# =========================
 def discover_wallet_candidates():
 
-    all_wallets = set()
+    current_seeds = set(SEED_WALLETS)
+    all_discovered = set()
 
-    seeds = list(set(SEED_WALLETS) | set(SEEN.keys()))
-    seeds = seeds[:15]  # anti explosion
+    # 🔁 MULTI-HOP EXPLORATION (clé du fix)
+    for _ in range(2):  # depth = 2
 
-    for seed in seeds:
+        next_seeds = set()
 
-        try:
-            signatures = get_recent_signatures(seed, limit=5)
-        except Exception:
-            continue
-
-        for tx in signatures:
-
-            sig = tx.get("signature")
-            if not sig:
-                continue
+        for seed in list(current_seeds):
 
             try:
-                full_tx = get_transaction(sig)
+                signatures = get_recent_signatures(seed, limit=10)
             except Exception:
                 continue
 
-            wallets = extract_wallets_from_transaction(full_tx)
-            wallets = filter_wallets(wallets)
+            for tx in signatures:
 
-            for w in wallets:
-                all_wallets.add(w)
+                sig = tx.get("signature")
+                if not sig:
+                    continue
+
+                try:
+                    full_tx = get_transaction(sig)
+                except Exception:
+                    continue
+
+                wallets = extract_wallets_from_transaction(full_tx)
+                wallets = filter_wallets(wallets)
+
+                for w in wallets:
+                    all_discovered.add(w)
+                    next_seeds.add(w)
+
+        # propagation vers la couche suivante
+        current_seeds = next_seeds
+
+        # stop si rien ne progresse
+        if not current_seeds:
+            break
 
     # =========================
-    # FILTER FINAL (IMPORTANT)
+    # FINAL FILTER
     # =========================
-    wallets = strong_filter(list(all_wallets))
+    wallets = recurrence_filter(list(all_discovered))
 
+    # sécurité anti bruit
     if len(wallets) < 2:
         return []
 

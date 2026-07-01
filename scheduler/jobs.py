@@ -13,16 +13,22 @@ from analysis.clusters import (
     compute_clusters,
     get_cluster_score,
 )
-
+from analysis.graph import (
+    load_graph,
+    save_graph,
+    add_connections,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def start_scheduler():
     """
-    Railway-friendly scheduler.
-    Une seule boucle daemon.
+    Railway-friendly scheduler
     """
+
+    # Charge le graphe une seule fois au démarrage
+    load_graph()
 
     def loop():
 
@@ -58,6 +64,18 @@ def run_scan():
 
     if not wallets:
         return
+
+    # ==========================
+    # UPDATE GRAPH
+    # ==========================
+
+    try:
+
+        add_connections(wallets)
+        save_graph()
+
+    except Exception:
+        logger.exception("Graph update failed")
 
     # ==========================
     # V3 SMART MONEY
@@ -135,16 +153,12 @@ def run_scan():
 
             score = get_cluster_score(cluster)
 
-            preview = ", ".join(
-                w[:6] for w in cluster[:5]
-            )
-
             logger.info(
-                "- Cluster #%s | size=%s | score=%s | %s",
+                "- Cluster #%s | size=%s | score=%s | wallets=%s",
                 i,
                 len(cluster),
                 score,
-                preview
+                [w[:6] for w in cluster[:5]]
             )
 
     except Exception:

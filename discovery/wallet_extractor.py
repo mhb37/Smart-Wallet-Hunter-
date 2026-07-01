@@ -1,76 +1,74 @@
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-def load_tx(tx):
-    """
-    Interface utilisée par scanner.py
-    Retourne toujours un dict contenant la clé 'wallets'.
-    """
-
-    wallets = extract_wallets_from_transaction(tx)
-    wallets = filter_wallets(wallets)
-
-    return {
-        "wallets": list(wallets)
-    }
-
-
 def extract_wallets_from_transaction(tx):
+
     wallets = set()
 
     if not tx:
         return wallets
 
     try:
-        message = tx["transaction"]["message"]
-        accounts = message.get("accountKeys", [])
+
+        accounts = (
+            tx["transaction"]["message"]
+            .get("accountKeys", [])
+        )
 
         for acc in accounts:
 
-            # Format jsonParsed
             if isinstance(acc, dict):
 
                 pubkey = acc.get("pubkey")
-                signer = acc.get("signer", False)
 
-                if pubkey and signer:
+                if pubkey:
                     wallets.add(pubkey)
 
-            # Format string
             elif isinstance(acc, str):
+
                 wallets.add(acc)
 
-    except Exception as e:
-        logger.exception(
-            "[wallet_extractor] extract failed: %s",
-            e
-        )
+    except Exception:
+        pass
 
     return wallets
 
 
 def filter_wallets(wallets):
-    filtered = set()
 
-    for wallet in wallets:
+    result = []
 
-        if not wallet:
+    blacklist = {
+        "So11111111111111111111111111111111111111112",
+        "11111111111111111111111111111111"
+    }
+
+    for w in wallets:
+
+        if not isinstance(w, str):
             continue
 
-        # Taille minimale d'une adresse Solana
-        if len(wallet) < 32:
+        if len(w) < 32:
             continue
 
-        # Comptes système
-        if wallet.startswith("111111"):
+        if w in blacklist:
             continue
 
-        # Wrapped SOL
-        if wallet == "So11111111111111111111111111111111111111112":
-            continue
+        result.append(w)
 
-        filtered.add(wallet)
+    return result
 
-    return filtered
+
+def load_tx(signature):
+
+    from discovery.solana_rpc import load_tx as rpc_load
+
+    tx = rpc_load(signature)
+
+    if not tx:
+        return None
+
+    wallets = extract_wallets_from_transaction(tx)
+
+    wallets = filter_wallets(wallets)
+
+    return {
+        "wallets": wallets
+    }

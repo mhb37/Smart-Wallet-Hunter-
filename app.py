@@ -6,18 +6,34 @@ from telegram_bot.bot import create_bot
 from scheduler.jobs import discover_wallets_job
 
 
-def debug_environment():
-    print("\n===== DEBUG ENVIRONMENT =====")
-    print("WORKING DIR:", os.getcwd())
-    print("FILES:", os.listdir("."))
-    print("PYTHON PATH:", sys.path)
-    print("============================\n")
+# =========================
+# DEBUG STARTUP
+# =========================
 
+print("\n===== STARTUP DEBUG =====")
+print("WORKDIR:", os.getcwd())
+print("FILES:", os.listdir("."))
+print("PYTHON PATH:", sys.path)
+print("========================\n")
+
+
+# =========================
+# ANTI DOUBLE INSTANCE (BASIC)
+# =========================
+
+def is_railway():
+    return bool(os.getenv("RAILWAY_ENVIRONMENT"))
+
+
+if is_railway():
+    print("🚀 Railway detected -> single instance mode enforced")
+
+
+# =========================
+# MAIN
+# =========================
 
 def main():
-
-    # Debug Railway (très important pour ton erreur actuelle)
-    debug_environment()
 
     # Scheduler
     scheduler = BackgroundScheduler()
@@ -25,18 +41,20 @@ def main():
     scheduler.add_job(
         discover_wallets_job,
         "interval",
-        minutes=1  # test rapide
+        minutes=1,
+        id="wallet_scan_job",
+        replace_existing=True
     )
 
     scheduler.start()
 
-    # Telegram bot
+    # Bot
     bot = create_bot()
 
     print("🚀 Smart Wallet Hunter lancé")
 
     bot.run_polling(
-        drop_pending_updates=True
+        drop_pending_updates=True  # IMPORTANT anti conflits Telegram
     )
 
 

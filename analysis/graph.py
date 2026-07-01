@@ -8,26 +8,36 @@ GRAPH = defaultdict(dict)
 
 
 def load_graph():
+
     global GRAPH
 
     if not os.path.exists(GRAPH_FILE):
         return
 
-    with open(GRAPH_FILE, "r") as f:
-        data = json.load(f)
+    try:
+        with open(GRAPH_FILE, "r") as f:
+            data = json.load(f)
 
-    for k, v in data.items():
-        GRAPH[k] = v
+        for k, v in data.items():
+            GRAPH[k] = v
+
+    except Exception:
+        GRAPH = defaultdict(dict)
 
 
 def save_graph():
 
-    with open(GRAPH_FILE, "w") as f:
-        json.dump(GRAPH, f)
+    try:
+        with open(GRAPH_FILE, "w") as f:
+            json.dump(GRAPH, f)
+
+    except Exception:
+        pass
 
 
 def add_connections(wallets):
 
+    # graph pondéré simple
     for w1 in wallets:
         for w2 in wallets:
 

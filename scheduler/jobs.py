@@ -1,62 +1,78 @@
+import logging
 from datetime import datetime
 
-from discovery.scanner import discover_wallet_candidates
-from storage.db import upsert_wallet
+from discovery.scanner import scan_wallets
+from analysis.wallet_score import score_wallets
+from telegram_bot.notifier import send_alert
 
-from analysis.graph import add_connections
-from analysis.centrality import compute_weighted_centrality
+logger = logging.getLogger(__name__)
 
-from analysis.clusters import update_clusters, compute_clusters, get_cluster_score
+
+# =========================
+# STATE GLOBAL (important)
+# =========================
+_seen_wallets = set()
+_last_scan_hash = None
 
 
 def discover_wallets_job():
+    """
+    JOB principal exécuté par scheduler
+    """
 
-    now = datetime.utcnow()
+    global _seen_wallets, _last_scan_hash
 
-    print(f"\n🔁 [SCAN] {now}")
+    logger.info("🔁 [SCHEDULER] Scan exécuté à %s", datetime.utcnow())
 
-    wallets = discover_wallet_candidates()
+    # 1. SCAN RAW TX
+    wallets = scan_wallets()
 
-    print(f"📊 {len(wallets)} wallets détectés")
+    logger.debug("[DEBUG] raw wallets = %s", wallets)
 
+    # ⚠️ FIX CRITIQUE : normalisation (cause 0 wallets bug)
     if not wallets:
+        logger.debug("[DEBUG] empty scan → skip")
         return
 
-    # =========================
-    # STORE
-    # =========================
-    for w in wallets:
-        upsert_wallet(w)
+    wallets = set(wallets)
 
-    # =========================
-    # GRAPH (V4 toujours actif)
-    # =========================
-    add_connections(wallets)
+    logger.debug("[DEBUG] unique wallets = %s", wallets)
 
-    central = compute_weighted_centrality()
+    # 2. ANTI DUPLICATES ACROSS SCANS
+    new_wallets = wallets - _seen_wallets
 
-    print("\n🧠 GRAPH LEADERS (V4)")
-    for w in central[:5]:
-        print(f"- {w['wallet'][:6]} centrality={w['score']}")
+    logger.debug("[DEBUG] new wallets = %s", new_wallets)
 
-    # =========================
-    # V9 CLUSTERS ENGINE (NOUVEAU)
-    # =========================
-    update_clusters(wallets)
-
-    clusters = compute_clusters()
-
-    print("\n🧬 SMART MONEY CLUSTERS (V9)")
-
-    if not clusters:
-        print("- aucun cluster stable")
+    if not new_wallets:
+        logger.debug("[DEBUG] no new wallets → skip scoring")
         return
 
-    for c in clusters[:5]:
+    _seen_wallets |= new_wallets
 
-        score = get_cluster_score(c)
+    # 3. SCORE
+    scored = score_wallets(list(new_wallets))
 
-        print(f"\n🔥 CLUSTER (score={score})")
+    logger.debug("[DEBUG] scored wallets = %s", scored)
 
-        for w in c[:5]:
-            print(f"- {w[:6]}")
+    if not scored:
+        logger.debug("[DEBUG] no scored wallets")
+        return
+
+    # 4. TOP 10 SAFE
+    top = sorted(scored, key=lambda x: x["score"], reverse=True)[:10]
+
+    logger.info("🔥 SMART MONEY TOP %s", len(top))
+
+    for w in top:
+        logger.info(
+            "- %s score=%.1f appear=%s",
+            w["wallet"],
+            w["score"],
+            w.get("appear", 1)
+        )
+
+    # 5. NOTIFY (optionnel)
+    try:
+        send_alert(top)
+    except Exception as e:
+        logger.exception("Telegram send error: %s", e)

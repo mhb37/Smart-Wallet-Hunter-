@@ -1,8 +1,10 @@
-from discovery.scanner import discover_wallet_candidates
-
+from datetime import datetime
 
 def discover_wallets_job():
+    now = datetime.utcnow()
 
-    wallets = discover_wallet_candidates()
+    print(f"🔁 [SCHEDULER] Scan exécuté à {now}")
 
-    print(f"{len(wallets)} candidats détectés")
+    wallets = ["wallet_1", "wallet_2", "wallet_3"]
+
+    print(f"📊 {len(wallets)} candidats générés")

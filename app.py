@@ -1,9 +1,7 @@
 import os
 import logging
 
-from telegram.ext import ApplicationBuilder
-
-from telegram_bot.handlers import register_handlers
+from telegram_bot.bot import build_bot
 from scheduler.jobs import start_scheduler
 
 
@@ -22,19 +20,13 @@ def main():
     token = os.getenv("BOT_TOKEN")
 
     if not token:
-        raise ValueError(
-            "BOT_TOKEN missing. Configure Railway Variables."
-        )
+        raise ValueError("BOT_TOKEN missing")
 
-    app = ApplicationBuilder() \
-        .token(token) \
-        .build()
-
-    # Telegram commands
-    register_handlers(app)
-
-    # Background scanner
+    # démarre le scanner
     start_scheduler()
+
+    # construit le bot
+    app = build_bot(token)
 
     logger.info("🟢 Bot running")
 

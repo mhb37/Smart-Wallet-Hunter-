@@ -1,7 +1,20 @@
+from apscheduler.schedulers.background import BackgroundScheduler
+
 from telegram_bot.bot import create_bot
+from scheduler.jobs import discover_wallets_job
 
 
 def main():
+
+    scheduler = BackgroundScheduler()
+
+    scheduler.add_job(
+        discover_wallets_job,
+        "interval",
+        hours=1
+    )
+
+    scheduler.start()
 
     bot = create_bot()
 

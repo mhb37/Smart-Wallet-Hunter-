@@ -4,5 +4,11 @@ from telegram_bot.commands import start, status
 
 
 def register_handlers(app):
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("status", status))
+
+    app.add_handler(
+        CommandHandler("start", start)
+    )
+
+    app.add_handler(
+        CommandHandler("status", status)
+    )

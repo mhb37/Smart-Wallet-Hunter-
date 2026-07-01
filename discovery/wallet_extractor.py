@@ -5,9 +5,10 @@ logger = logging.getLogger(__name__)
 
 def load_tx(tx):
     """
-    Compatible avec scanner.py
-    Reçoit déjà la transaction complète.
+    Interface utilisée par scanner.py
+    Retourne toujours un dict contenant la clé 'wallets'.
     """
+
     wallets = extract_wallets_from_transaction(tx)
     wallets = filter_wallets(wallets)
 
@@ -30,6 +31,7 @@ def extract_wallets_from_transaction(tx):
 
             # Format jsonParsed
             if isinstance(acc, dict):
+
                 pubkey = acc.get("pubkey")
                 signer = acc.get("signer", False)
 
@@ -41,7 +43,10 @@ def extract_wallets_from_transaction(tx):
                 wallets.add(acc)
 
     except Exception as e:
-        logger.exception(e)
+        logger.exception(
+            "[wallet_extractor] extract failed: %s",
+            e
+        )
 
     return wallets
 
@@ -49,19 +54,23 @@ def extract_wallets_from_transaction(tx):
 def filter_wallets(wallets):
     filtered = set()
 
-    for w in wallets:
+    for wallet in wallets:
 
-        if not w:
+        if not wallet:
             continue
 
         # Taille minimale d'une adresse Solana
-        if len(w) < 32:
+        if len(wallet) < 32:
             continue
 
-        # Élimine les comptes système
-        if w.startswith("111111"):
+        # Comptes système
+        if wallet.startswith("111111"):
             continue
 
-        filtered.add(w)
+        # Wrapped SOL
+        if wallet == "So11111111111111111111111111111111111111112":
+            continue
+
+        filtered.add(wallet)
 
     return filtered

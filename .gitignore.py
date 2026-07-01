@@ -1,1 +1,4 @@
-1
+.env
+__pycache__/
+*.pyc
+smart_wallets.db

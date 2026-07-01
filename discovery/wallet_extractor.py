@@ -1,6 +1,16 @@
 from discovery.solana_rpc import get_transaction
 
 
+BLACKLIST = {
+    "11111111111111111111111111111111",
+    "So11111111111111111111111111111111111111112",
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "ComputeBudget111111111111111111111111111111",
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+}
+
+
 def load_tx(signature):
 
     tx = get_transaction(signature)
@@ -13,7 +23,7 @@ def load_tx(signature):
     wallets = filter_wallets(wallets)
 
     return {
-        "wallets": list(wallets)
+        "wallets": wallets
     }
 
 
@@ -23,10 +33,7 @@ def extract_wallets_from_transaction(tx):
 
     try:
 
-        accounts = (
-            tx["transaction"]["message"]
-            .get("accountKeys", [])
-        )
+        accounts = tx["transaction"]["message"]["accountKeys"]
 
         for acc in accounts:
 
@@ -49,12 +56,7 @@ def extract_wallets_from_transaction(tx):
 
 def filter_wallets(wallets):
 
-    banned = {
-        "So11111111111111111111111111111111111111112",
-        "11111111111111111111111111111111"
-    }
-
-    filtered = []
+    result = []
 
     for w in wallets:
 
@@ -64,9 +66,12 @@ def filter_wallets(wallets):
         if len(w) < 32:
             continue
 
-        if w in banned:
+        if w in BLACKLIST:
             continue
 
-        filtered.append(w)
+        if "111111111111" in w:
+            continue
 
-    return filtered
+        result.append(w)
+
+    return result

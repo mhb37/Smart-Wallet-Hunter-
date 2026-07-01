@@ -28,12 +28,12 @@ def discover_wallets_job():
         upsert_wallet(w)
 
     # =========================
-    # GRAPH
+    # GRAPH BUILD
     # =========================
     add_connections(wallets)
 
     # =========================
-    # V3 SMART SCORE
+    # V3 SCORE
     # =========================
     top = compute_smart_wallets()
 
@@ -51,15 +51,10 @@ def discover_wallets_job():
         print(f"- {w['wallet'][:6]} centrality={w['score']}")
 
     # =========================
-    # V5 BEHAVIOR CLASSIFICATION
+    # V5 BEHAVIOR
     # =========================
     behavior = classify_wallets()
 
     print("\n🧬 WALLET BEHAVIOR (V5)")
-
     for w in behavior[:10]:
-        print(
-            f"- {w['wallet'][:6]} "
-            f"{w['behavior']} "
-            f"intensity={w['intensity']}"
-        )
+        print(f"- {w['wallet'][:6]} {w['behavior']} intensity={w['intensity']}")

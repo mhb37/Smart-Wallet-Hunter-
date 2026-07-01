@@ -4,8 +4,10 @@ import time
 from datetime import datetime
 
 from discovery.scanner import scan_wallets
+
 from analysis.wallet_score import score_wallets
 from analysis.centrality import compute_weighted_centrality
+from analysis.behavior import classify_wallets
 
 
 logger = logging.getLogger(__name__)
@@ -13,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def start_scheduler():
     """
-    Railway-friendly scheduler
+    Railway friendly scheduler
     """
 
     def loop():
@@ -30,12 +32,11 @@ def start_scheduler():
 
             time.sleep(60)
 
-    thread = threading.Thread(
+    threading.Thread(
         target=loop,
-        daemon=True
-    )
-
-    thread.start()
+        daemon=True,
+        name="scanner-thread"
+    ).start()
 
 
 def run_scan():
@@ -89,3 +90,25 @@ def run_scan():
 
     except Exception:
         logger.exception("Centrality failed")
+
+    # =====================
+    # V5 BEHAVIOR
+    # =====================
+
+    try:
+
+        behaviors = classify_wallets()
+
+        logger.info("🧬 WALLET BEHAVIOR (V5)")
+
+        for item in behaviors[:10]:
+
+            logger.info(
+                "- %s %s intensity=%.1f",
+                item["wallet"][:6],
+                item["behavior"],
+                item["intensity"]
+            )
+
+    except Exception:
+        logger.exception("Behavior failed")

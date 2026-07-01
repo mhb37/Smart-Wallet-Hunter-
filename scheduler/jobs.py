@@ -1,10 +1,8 @@
-from datetime import datetime
+from discovery.scanner import discover_wallet_candidates
 
 
 def discover_wallets_job():
-    print(f"[{datetime.now()}] Scan automatique lancé")
 
-    # Plus tard :
-    # wallets = discover_wallet_candidates()
-    # analyze_wallets(wallets)
-    # send_notifications()
+    wallets = discover_wallet_candidates()
+
+    print(f"{len(wallets)} candidats détectés")

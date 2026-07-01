@@ -1,5 +1,6 @@
 from datetime import datetime
 from discovery.scanner import discover_wallet_candidates
+from analysis.wallet_score import score_wallets
 
 
 def discover_wallets_job():
@@ -8,11 +9,18 @@ def discover_wallets_job():
 
     wallets = discover_wallet_candidates()
 
-    print(f"🔁 [SCHEDULER] Scan exécuté à {now}")
+    print(f"\n🔁 SCAN {now}")
     print(f"📊 {len(wallets)} wallets détectés")
 
-    # debug affichage
     if wallets:
-        print("Exemples:")
-        for w in wallets[:5]:
-            print(" -", w)
+
+        scored = score_wallets(wallets)
+
+        print("\n🏆 TOP 5 WALLETS")
+
+        for w in scored[:5]:
+            print(
+                f"{w['wallet'][:6]}... "
+                f"Score={w['score']} "
+                f"Connexions={w['connections']}"
+            )

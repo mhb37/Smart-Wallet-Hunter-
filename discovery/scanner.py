@@ -1,10 +1,15 @@
 import logging
 
-from discovery.solana_rpc import fetch_transactions
+from discovery.solana_rpc import (
+    get_recent_signatures,
+    get_transaction,
+)
 from discovery.wallet_extractor import load_tx
 
 
 logger = logging.getLogger(__name__)
+
+SEED_ADDRESS = "So11111111111111111111111111111111111111112"
 
 
 def scan_wallets():
@@ -12,39 +17,50 @@ def scan_wallets():
 
     try:
         logger.info("===== SCANNER DEBUG START =====")
+        logger.info("[DEBUG] SEED: %s", SEED_ADDRESS)
 
-        transactions = fetch_transactions()
-
-        logger.info(
-            "[DEBUG] transactions count = %s",
-            len(transactions)
+        signatures = get_recent_signatures(
+            SEED_ADDRESS,
+            limit=10
         )
 
-        for index, tx in enumerate(transactions):
+        logger.info(
+            "[DEBUG] signatures raw type=%s",
+            type(signatures)
+        )
+
+        logger.info(
+            "[DEBUG] signatures count=%s",
+            len(signatures)
+        )
+
+        for index, sig_data in enumerate(signatures):
+
+            signature = sig_data.get("signature")
+
+            if not signature:
+                continue
 
             logger.info(
-                "[DEBUG] TX #%s sig = %s",
+                "[DEBUG] TX #%s sig=%s",
                 index,
-                tx
+                signature
             )
 
-            data = load_tx(tx)
+            tx = get_transaction(signature)
 
-            if not data:
+            if not tx:
                 logger.info("[DEBUG] empty transaction")
                 continue
 
-            logger.info("[DEBUG] tx loaded OK")
+            data = load_tx(tx)
 
             raw = data.get("wallets", [])
 
             logger.info(
                 "[DEBUG] wallets raw = %s",
-                raw
+                set(raw)
             )
-
-            if isinstance(raw, set):
-                raw = list(raw)
 
             if isinstance(raw, str):
                 raw = [raw]
@@ -53,7 +69,7 @@ def scan_wallets():
                 wallet
                 for wallet in raw
                 if isinstance(wallet, str)
-                and len(wallet) > 10
+                and len(wallet) >= 32
             ]
 
             logger.info(
@@ -81,6 +97,6 @@ def scan_wallets():
 
         return list(wallets)
 
-    except Exception as e:
-        logger.exception(e)
+    except Exception:
+        logger.exception("scan_wallets failed")
         return []

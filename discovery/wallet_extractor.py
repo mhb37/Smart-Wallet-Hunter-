@@ -1,9 +1,25 @@
+from discovery.solana_rpc import get_transaction
+
+
+def load_tx(signature):
+
+    tx = get_transaction(signature)
+
+    if not tx:
+        return None
+
+    wallets = extract_wallets_from_transaction(tx)
+
+    wallets = filter_wallets(wallets)
+
+    return {
+        "wallets": list(wallets)
+    }
+
+
 def extract_wallets_from_transaction(tx):
 
     wallets = set()
-
-    if not tx:
-        return wallets
 
     try:
 
@@ -33,42 +49,24 @@ def extract_wallets_from_transaction(tx):
 
 def filter_wallets(wallets):
 
-    result = []
-
-    blacklist = {
+    banned = {
         "So11111111111111111111111111111111111111112",
         "11111111111111111111111111111111"
     }
 
+    filtered = []
+
     for w in wallets:
 
-        if not isinstance(w, str):
+        if not w:
             continue
 
         if len(w) < 32:
             continue
 
-        if w in blacklist:
+        if w in banned:
             continue
 
-        result.append(w)
+        filtered.append(w)
 
-    return result
-
-
-def load_tx(signature):
-
-    from discovery.solana_rpc import load_tx as rpc_load
-
-    tx = rpc_load(signature)
-
-    if not tx:
-        return None
-
-    wallets = extract_wallets_from_transaction(tx)
-
-    wallets = filter_wallets(wallets)
-
-    return {
-        "wallets": wallets
-    }
+    return filtered

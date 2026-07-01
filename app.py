@@ -28,13 +28,12 @@ def main():
 
     register_handlers(app)
 
-    # Supprime un éventuel ancien webhook
-    app.bot.delete_webhook(drop_pending_updates=True)
-
-    # Lance le scanner
+    # Lance le scheduler de scan
     start_scheduler()
 
-    # Telegram polling
+    # Démarrage du bot Telegram
+    # drop_pending_updates supprime automatiquement
+    # les anciens messages et le webhook éventuel.
     app.run_polling(
         drop_pending_updates=True,
         close_loop=False,

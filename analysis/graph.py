@@ -1,18 +1,21 @@
 from collections import defaultdict
 
-
-# wallet -> set(wallets liés)
-GRAPH = defaultdict(set)
+GRAPH = defaultdict(dict)
 
 
 def add_connections(wallets):
-    """
-    Crée des liens entre wallets apparaissant dans le même scan
-    """
+
     for w1 in wallets:
         for w2 in wallets:
-            if w1 != w2:
-                GRAPH[w1].add(w2)
+
+            if w1 == w2:
+                continue
+
+            # poids du lien (co-appearance)
+            if w2 in GRAPH[w1]:
+                GRAPH[w1][w2] += 1
+            else:
+                GRAPH[w1][w2] = 1
 
 
 def get_graph():

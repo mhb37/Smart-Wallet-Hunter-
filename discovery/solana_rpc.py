@@ -1,6 +1,8 @@
 import requests
 
+
 SOLANA_RPC_URL = "https://api.mainnet-beta.solana.com"
+
 SEED_ADDRESS = "So11111111111111111111111111111111111111112"
 
 
@@ -12,28 +14,29 @@ def fetch_transactions(limit=10):
         "method": "getSignaturesForAddress",
         "params": [
             SEED_ADDRESS,
-            {"limit": limit}
+            {
+                "limit": limit
+            }
         ]
     }
 
     r = requests.post(
         SOLANA_RPC_URL,
         json=payload,
-        timeout=30
+        timeout=20
     )
 
     data = r.json()
 
-    result = data.get("result", [])
+    signatures = data.get("result", [])
 
     return [
-        tx["signature"]
-        for tx in result
-        if "signature" in tx
+        x["signature"]
+        for x in signatures
     ]
 
 
-def load_tx(signature):
+def get_transaction(signature):
 
     payload = {
         "jsonrpc": "2.0",
@@ -51,7 +54,7 @@ def load_tx(signature):
     r = requests.post(
         SOLANA_RPC_URL,
         json=payload,
-        timeout=30
+        timeout=20
     )
 
     data = r.json()

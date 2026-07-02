@@ -1,28 +1,41 @@
 import logging
-import time
 import threading
+import time
 from datetime import datetime
 
-from discovery.scanner import scan_wallets
 from analysis.wallet_score import score_wallets
+from discovery.scanner import scan_wallets
+
 
 logger = logging.getLogger(__name__)
 
 
+SCAN_INTERVAL = 60
+
+
 def start_scheduler():
-    def loop():
-        while True:
-            try:
-                run_scan()
-            except Exception as e:
-                logger.exception(e)
+    thread = threading.Thread(
+        target=_loop,
+        daemon=True
+    )
+    thread.start()
 
-            time.sleep(60)
 
-    threading.Thread(target=loop, daemon=True).start()
+def _loop():
+
+    while True:
+
+        try:
+            run_scan()
+
+        except Exception as e:
+            logger.exception("Scheduler error: %s", e)
+
+        time.sleep(SCAN_INTERVAL)
 
 
 def run_scan():
+
     logger.info("SCAN %s", datetime.utcnow())
 
     wallets = scan_wallets()
@@ -30,14 +43,30 @@ def run_scan():
     logger.info("wallets = %s", len(wallets))
 
     if not wallets:
+        logger.info("No wallets found")
         return
 
     scored = score_wallets(wallets)
 
-    top = sorted(scored, key=lambda x: x["score"], reverse=True)[:10]
+    # Tri :
+    # 1) score décroissant
+    # 2) nombre d'apparitions décroissant
+    top = sorted(
+        scored,
+        key=lambda x: (
+            x["score"],
+            x["appear"]
+        ),
+        reverse=True
+    )[:10]
 
     logger.info("TOP 10")
 
-    for w in top:
-        logger.info("%s score=%s appear=%s",
-                    w["wallet"], w["score"], w["appear"])
+    for wallet in top:
+
+        logger.info(
+            "%s score=%s appear=%s",
+            wallet["wallet"],
+            wallet["score"],
+            wallet["appear"]
+        )

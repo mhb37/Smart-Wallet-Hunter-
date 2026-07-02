@@ -1,102 +1,142 @@
 import logging
-
+import os
 import requests
-
 
 logger = logging.getLogger(__name__)
 
 
-SOLANA_RPC_URL = "https://api.mainnet-beta.solana.com"
-
-# Jupiter
-TARGET_PROGRAM = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
-
-
-def fetch_transactions(limit=25):
-
-    signatures = get_recent_signatures(
-        TARGET_PROGRAM,
-        limit
-    )
-
-    return [
-        tx["signature"]
-        for tx in signatures
-        if "signature" in tx
-    ]
+SOLANA_RPC_URL = os.getenv(
+    "SOLANA_RPC_URL",
+    "https://api.mainnet-beta.solana.com"
+)
 
 
-def get_recent_signatures(address, limit=25):
+TARGET_PROGRAMS = [
+    # Jupiter
+    "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+
+    # Raydium AMM
+    "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+
+    # Raydium CLMM
+    "CAMMCzo5YL8w4VFF8KVHrK22GGUQhJ6cA7Y7xqHY2k",
+
+    # Pump.fun
+    "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+
+    # Meteora
+    "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+]
+
+
+session = requests.Session()
+
+
+def rpc_call(method, params):
 
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "getSignaturesForAddress",
-        "params": [
+        "method": method,
+        "params": params,
+    }
+
+    response = session.post(
+        SOLANA_RPC_URL,
+        json=payload,
+        timeout=30,
+    )
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    if data.get("error"):
+        raise Exception(data["error"])
+
+    return data["result"]
+
+
+def get_recent_signatures(address, limit=20):
+
+    return rpc_call(
+        "getSignaturesForAddress",
+        [
             address,
             {
                 "limit": limit
             }
         ]
-    }
+    )
 
-    try:
 
-        response = requests.post(
-            SOLANA_RPC_URL,
-            json=payload,
-            timeout=30
-        )
+def fetch_transactions(limit_per_program=20):
 
-        response.raise_for_status()
+    signatures = []
 
-        data = response.json()
+    seen = set()
 
-        return data.get("result", [])
+    for program in TARGET_PROGRAMS:
 
-    except Exception as e:
+        try:
 
-        logger.exception(
-            "get_recent_signatures failed: %s",
-            e
-        )
+            txs = get_recent_signatures(
+                program,
+                limit_per_program
+            )
 
-        return []
+            logger.info(
+                "%s -> %s signatures",
+                program,
+                len(txs)
+            )
+
+            for tx in txs:
+
+                sig = tx["signature"]
+
+                if sig in seen:
+                    continue
+
+                seen.add(sig)
+                signatures.append(sig)
+
+        except Exception as e:
+
+            logger.exception(
+                "RPC error on %s: %s",
+                program,
+                e
+            )
+
+    logger.info(
+        "TOTAL signatures collected = %s",
+        len(signatures)
+    )
+
+    return signatures
 
 
 def get_transaction(signature):
 
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "getTransaction",
-        "params": [
-            signature,
-            {
-                "encoding": "jsonParsed",
-                "maxSupportedTransactionVersion": 0
-            }
-        ]
-    }
-
     try:
 
-        response = requests.post(
-            SOLANA_RPC_URL,
-            json=payload,
-            timeout=30
+        return rpc_call(
+            "getTransaction",
+            [
+                signature,
+                {
+                    "encoding": "jsonParsed",
+                    "maxSupportedTransactionVersion": 0,
+                }
+            ]
         )
-
-        response.raise_for_status()
-
-        data = response.json()
-
-        return data.get("result")
 
     except Exception as e:
 
         logger.exception(
-            "get_transaction failed: %s",
+            "transaction error %s : %s",
+            signature,
             e
         )
 

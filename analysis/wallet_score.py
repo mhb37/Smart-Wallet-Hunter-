@@ -1,14 +1,22 @@
-from collections import defaultdict
+from collections import Counter
 
 
 def score_wallets(wallets):
-    stats = defaultdict(lambda: {"score": 0, "appear": 0})
 
-    for w in wallets:
-        stats[w]["appear"] += 1
-        stats[w]["score"] += 10
+    counter = Counter(wallets)
 
-    return [
-        {"wallet": k, **v}
-        for k, v in stats.items()
-    ]
+    results = []
+
+    for wallet, count in counter.items():
+
+        results.append({
+            "wallet": wallet,
+            "appear": count,
+            "score": count * count
+        })
+
+    return sorted(
+        results,
+        key=lambda x: x["score"],
+        reverse=True
+    )

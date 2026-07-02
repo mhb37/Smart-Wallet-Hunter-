@@ -7,7 +7,7 @@ SYSTEM_WALLETS = {
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
 
-    # Associated Token Account
+    # ATA
     "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
 
     # Memo
@@ -19,15 +19,17 @@ SYSTEM_WALLETS = {
     # Jupiter
     "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
     "D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf",
-
-    # Jito
-    "jitodontfront1111111111111111JustUseJupiter",
-
-    # Sysvars
-    "SysvarRecentB1ockHashes11111111111111111111",
-    "Sysvar1nstructions1111111111111111111111111",
-    "SysvarC1ock11111111111111111111111111111111",
 }
+
+
+BANNED_PREFIXES = (
+    "jit",
+    "jito",
+    "J1to",
+    "goon",
+    "pAMM",
+    "pfee",
+)
 
 
 def is_system_wallet(pubkey: str) -> bool:
@@ -35,9 +37,12 @@ def is_system_wallet(pubkey: str) -> bool:
     if pubkey in SYSTEM_WALLETS:
         return True
 
-    # Autres comptes système Solana
     if pubkey.startswith("Sysvar"):
         return True
+
+    for prefix in BANNED_PREFIXES:
+        if pubkey.startswith(prefix):
+            return True
 
     return False
 
@@ -52,23 +57,21 @@ def extract_wallets_from_transaction(tx):
     try:
 
         message = tx["transaction"]["message"]
-        account_keys = message.get("accountKeys", [])
 
-        for acc in account_keys:
+        for acc in message.get("accountKeys", []):
 
             if isinstance(acc, dict):
                 pubkey = acc.get("pubkey")
-
-            elif isinstance(acc, str):
-                pubkey = acc
-
             else:
-                continue
+                pubkey = acc
 
             if not pubkey:
                 continue
 
             if len(pubkey) < 32:
+                continue
+
+            if pubkey.endswith("pump"):
                 continue
 
             if is_system_wallet(pubkey):
@@ -79,5 +82,4 @@ def extract_wallets_from_transaction(tx):
     except Exception as e:
         print(f"wallet extraction error: {e}")
 
-    # Supprime les doublons tout en conservant l'ordre
     return list(dict.fromkeys(wallets))

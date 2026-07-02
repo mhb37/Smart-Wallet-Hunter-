@@ -10,29 +10,22 @@ from analysis.wallet_score import score_wallets
 logger = logging.getLogger(__name__)
 
 
-SCAN_INTERVAL = 60
+SCAN_INTERVAL = 300
 
 
 def start_scheduler():
 
     thread = threading.Thread(
-        target=scheduler_loop,
+        target=loop,
         daemon=True
     )
 
     thread.start()
 
-    logger.info(
-        "Scheduler started (%ss)",
-        SCAN_INTERVAL
-    )
 
-
-def scheduler_loop():
+def loop():
 
     while True:
-
-        started = time.time()
 
         try:
 
@@ -42,14 +35,7 @@ def scheduler_loop():
 
             logger.exception(e)
 
-        elapsed = time.time() - started
-
-        sleep_time = max(
-            5,
-            SCAN_INTERVAL - elapsed
-        )
-
-        time.sleep(sleep_time)
+        time.sleep(SCAN_INTERVAL)
 
 
 def run_scan():
@@ -62,35 +48,30 @@ def run_scan():
     wallets = scan_wallets()
 
     logger.info(
-        "wallets found = %s",
+        "wallets discovered = %s",
         len(wallets)
     )
 
     if not wallets:
-        logger.warning(
-            "no wallets discovered"
-        )
         return
 
     scored = score_wallets(wallets)
 
-    top = sorted(
-        scored,
+    scored.sort(
         key=lambda x: (
-            x["score"],
-            x["appear"]
+            x["appear"],
+            x["score"]
         ),
         reverse=True
-    )[:20]
+    )
 
-    logger.info("TOP 20")
+    logger.info("TOP WALLET CANDIDATES")
 
-    for index, wallet in enumerate(top, start=1):
+    for wallet in scored[:20]:
 
         logger.info(
-            "#%s %s score=%s appear=%s",
-            index,
+            "%s | score=%s | appear=%s",
             wallet["wallet"],
             wallet["score"],
-            wallet["appear"],
+            wallet["appear"]
         )

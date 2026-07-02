@@ -3,8 +3,8 @@ import threading
 import time
 from datetime import datetime
 
-from analysis.wallet_score import score_wallets
 from discovery.scanner import scan_wallets
+from analysis.wallet_score import score_wallets
 
 
 logger = logging.getLogger(__name__)
@@ -14,43 +14,66 @@ SCAN_INTERVAL = 60
 
 
 def start_scheduler():
+
     thread = threading.Thread(
-        target=_loop,
+        target=scheduler_loop,
         daemon=True
     )
+
     thread.start()
 
+    logger.info(
+        "Scheduler started (%ss)",
+        SCAN_INTERVAL
+    )
 
-def _loop():
+
+def scheduler_loop():
 
     while True:
 
+        started = time.time()
+
         try:
+
             run_scan()
 
         except Exception as e:
-            logger.exception("Scheduler error: %s", e)
 
-        time.sleep(SCAN_INTERVAL)
+            logger.exception(e)
+
+        elapsed = time.time() - started
+
+        sleep_time = max(
+            5,
+            SCAN_INTERVAL - elapsed
+        )
+
+        time.sleep(sleep_time)
 
 
 def run_scan():
 
-    logger.info("SCAN %s", datetime.utcnow())
+    logger.info(
+        "SCAN %s",
+        datetime.utcnow().isoformat()
+    )
 
     wallets = scan_wallets()
 
-    logger.info("wallets = %s", len(wallets))
+    logger.info(
+        "wallets found = %s",
+        len(wallets)
+    )
 
     if not wallets:
-        logger.info("No wallets found")
+        logger.warning(
+            "no wallets discovered"
+        )
         return
 
     scored = score_wallets(wallets)
 
-    # Tri :
-    # 1) score décroissant
-    # 2) nombre d'apparitions décroissant
     top = sorted(
         scored,
         key=lambda x: (
@@ -58,15 +81,16 @@ def run_scan():
             x["appear"]
         ),
         reverse=True
-    )[:10]
+    )[:20]
 
-    logger.info("TOP 10")
+    logger.info("TOP 20")
 
-    for wallet in top:
+    for index, wallet in enumerate(top, start=1):
 
         logger.info(
-            "%s score=%s appear=%s",
+            "#%s %s score=%s appear=%s",
+            index,
             wallet["wallet"],
             wallet["score"],
-            wallet["appear"]
+            wallet["appear"],
         )
